@@ -1,3 +1,7 @@
+# 0.1.3
+
+- Packaging: the manifest, repository links (`Shrimp381/hide-ui`), author and README install/bug-report links now point at this repository instead of the upstream one. `compatibility` is `minimum 13 / verified 13` with no maximum, so the module stays enabled on v14 too. No code changes from 0.1.2.
+
 # 0.1.2
 
 - **Foundry v13 support.** The module now loads on v13 as well as v14 (`compatibility.minimum` is 13). Nothing about v14 behaviour changed: all v13-specific handling is gated on a `hide-ui-v13` body class that `hide-ui.js` sets during `init` when `game.release.generation < 14`.
