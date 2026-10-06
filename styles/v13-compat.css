@@ -1,0 +1,80 @@
+/* ── Foundry v13 compatibility layer ──────────────────────────────────────── */
+/* Everything here is scoped to `body.hide-ui-v13`, a class hide-ui.js adds during
+   `init` only when game.release.generation < 14. On v14 none of these rules match,
+   so v14 rendering is exactly what base.css / settings-form.css produce.
+
+   The core hide rules in base.css already target the same v13 DOM ids and
+   `data-tab` / `data-action` attributes (the v13-verified hide-player-ui module this
+   one descends from uses identical selectors, and the Hotbar / Token HUD action names
+   are the same in v13 and v14). So this file only covers what differs or is uncertain:
+
+   1. Tag-agnostic selectors. base.css pins several controls as `button[...]`. If v13
+      renders a control as a different element (e.g. a div.control-icon), the v14
+      selector misses it, so these repeat the rules without the element qualifier.
+   2. Theme-variable fallbacks for the config forms (below). */
+
+
+/* ── 1. Tag-agnostic hide rules ───────────────────────────────────────────── */
+
+/* Hotbar controls */
+.hide-ui-v13.hide-ui-hotbarLock  #hotbar [data-action="lock"],
+.hide-ui-v13.hide-ui-hotbarClear #hotbar [data-action="clear"],
+.hide-ui-v13.hide-ui-hotbarMenu  #hotbar [data-action="menu"],
+.hide-ui-v13.hide-ui-hotbarMute  #hotbar [data-action="mute"] {
+   display: none !important;
+}
+
+/* Token HUD buttons */
+.hide-ui-v13.hide-ui-tokenHudTarget #token-hud [data-action="target"],
+.hide-ui-v13.hide-ui-tokenHudCombat #token-hud [data-action="combat"],
+.hide-ui-v13.hide-ui-tokenHudHide   #token-hud [data-action="visibility"],
+.hide-ui-v13.hide-ui-tokenHudLock   #token-hud [data-action="locked"],
+.hide-ui-v13.hide-ui-tokenHudConfig #token-hud [data-action="config"] {
+   display: none !important;
+}
+
+/* Settings tab contents */
+.hide-ui-v13.hide-ui-settingsGameSettings #settings [data-app="configure"],
+.hide-ui-v13.hide-ui-settingsActiveModules #settings [data-app="modules"],
+.hide-ui-v13.hide-ui-settingsTours #settings [data-app="tours"] {
+   display: none !important;
+}
+
+/* Notification toasts — match on the .notification class alone, not <li> specifically. */
+.hide-ui-v13.hide-ui-notifications #notifications .notification:not(.error) {
+   display: none !important;
+}
+.hide-ui-v13.hide-ui-notifications-errors #notifications .notification.error {
+   display: none !important;
+}
+
+
+/* ── 2. Config-form theme fallbacks ───────────────────────────────────────── */
+/* The forms read core theme variables (--color-bg, --color-bg-option, border and
+   text colors) without fallbacks. v13 scopes its theme variables to themed windows
+   and defines some of them differently, so an undefined/mismatched one can leave a
+   panel transparent or its secondary text dark-on-dark. Pin explicit values inside
+   the module's own windows — dark by default, light when the window is themed light.
+   (The toggle-switch tracks and accent colour are already hardcoded in
+   settings-form.css, so they need nothing here.) */
+
+body.hide-ui-v13 .hide-ui {
+   --color-bg: #1d1d22;
+   --color-bg-option: #2a2a31;
+   --color-border-light-primary: #4a4a55;
+   --color-border-light-secondary: #3d3d47;
+   --color-border-light-tertiary: #33333b;
+   --color-text-primary: #e7e7ea;
+   --color-text-dark-secondary: #a9a9b5;
+}
+
+body.hide-ui-v13 .hide-ui.theme-light,
+body.hide-ui-v13 .theme-light .hide-ui {
+   --color-bg: #f1efe8;
+   --color-bg-option: #e5e2d8;
+   --color-border-light-primary: #b3b0a4;
+   --color-border-light-secondary: #c4c1b5;
+   --color-border-light-tertiary: #d3d0c5;
+   --color-text-primary: #1f1e1b;
+   --color-text-dark-secondary: #55534a;
+}

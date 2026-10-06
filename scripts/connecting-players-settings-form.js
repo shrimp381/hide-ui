@@ -1,0 +1,131 @@
+import { MODULE_ID, SETTINGS_KEY, truthySettings, falseySettings, SOCKET_EVENT } from "./constants.js";
+import { modeFlags, isV14OrLater } from "./helpers.js";
+
+const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
+
+/**
+ * GM-only settings form for configuring which UI elements are hidden for connecting players.
+ * Opened via the module's settings menu entry (restricted: true).
+ */
+export class HideUISettingsForm extends HandlebarsApplicationMixin(ApplicationV2) {
+   static DEFAULT_OPTIONS = {
+      id: "hide-ui-settings-form",
+      classes: ["hide-ui"],
+      window: { title: "Players UI" },
+      position: { width: 520, height: 640 },
+      actions: {
+         toggleAll: HideUISettingsForm._onToggleAll,
+      },
+   };
+
+   static PARTS = {
+      form: {
+         template: `modules/${MODULE_ID}/templates/settings-form.hbs`,
+      },
+   };
+
+   /** @type {Object|null} Unsaved state held between action-triggered re-renders. */
+   _formState = null;
+
+   /** @type {AbortController|null} Cleans up the submit listener on each re-render. */
+   _submitController = null;
+
+   /**
+    * Builds context for the settings form template.
+    * Uses _formState when re-rendering after toggle actions, otherwise reads world settings.
+    * @param {ApplicationRenderOptions} options
+    * @returns {Promise<Object>}
+    */
+   async _prepareContext(options) {
+      const settings = this._formState ?? game.settings.get(MODULE_ID, SETTINGS_KEY);
+      return {
+         settings,
+         // Scene Levels and the Placeables tab are v14-only; the template hides those rows on v13.
+         isV14: isV14OrLater(),
+         // Per-option booleans for the Macro Hotbar's tri-state (off/hide/autohide) select.
+         hideHotbarMode: modeFlags(settings.hideHotbar),
+         renderTokenActionHudOption: game.modules.get("token-action-hud")?.active ?? false,
+         renderBossBarOption: game.modules.get("bossbar")?.active ?? false,
+         renderDiceSoNiceOption: game.modules.get("dice-so-nice")?.active ?? false,
+      };
+   }
+
+   /**
+    * Attaches the form submit listener on every render.
+    * See HideUIPlayerConfigurationForm._onRender for the rationale.
+    * @param {ApplicationRenderContext} context
+    * @param {ApplicationRenderOptions} options
+    */
+   _onRender(context, options) {
+      this._submitController?.abort();
+      this._submitController = new AbortController();
+      const form = this.element.querySelector("form");
+      if (!form) return;
+      form.addEventListener("submit", async (event) => {
+         event.preventDefault();
+         const fd = new foundry.applications.ux.FormDataExtended(form);
+         const saved = await HideUISettingsForm._onSubmit.call(this, event, form, fd);
+         if (saved !== false) this.close();
+      }, { signal: this._submitController.signal });
+   }
+
+   /**
+    * Toggles all checkboxes: unchecks all if any are checked, checks all otherwise.
+    * @param {Event} event
+    * @param {HTMLElement} _target
+    * @returns {Promise<void>}
+    */
+   static async _onToggleAll(event, _target) {
+      const form = this.element.querySelector("form");
+      // "Active" means any checkbox is ticked or any tri-state segmented control is not "off".
+      const anyChecked = [...form.querySelectorAll('input[type="checkbox"]')].some(cb => cb.checked)
+         || [...form.querySelectorAll('.hide-ui-mode input[type="radio"]:checked')].some(r => r.value !== "off");
+      this._formState = foundry.utils.deepClone(anyChecked ? falseySettings : truthySettings);
+      this.render();
+   }
+
+   /**
+    * Persists form data to world settings on submit.
+    * Merges into existing settings so keys absent from the form (hidden by conditionals) are preserved.
+    * Shows a confirmation dialog when the Game Settings tab would be hidden, since players
+    * would lose access to all module settings from the UI. Returns false to signal the caller
+    * to keep the form open when the GM cancels.
+    * @param {Event} event
+    * @param {HTMLFormElement} _form
+    * @param {FormDataExtended} formData
+    * @returns {Promise<boolean|undefined>} false if the GM cancelled, undefined otherwise.
+    */
+   static async _onSubmit(event, _form, formData) {
+      const current = game.settings.get(MODULE_ID, SETTINGS_KEY);
+      const data = foundry.utils.mergeObject(current, formData.object, {
+         insertKeys: true,
+         insertValues: true,
+      });
+
+      if (data.hideSideBar?.gameSettings || data.hideSideBar?.complete) {
+         const confirmed = await foundry.applications.api.DialogV2.confirm({
+            window: { title: "Warning: Settings Tab Will Be Hidden" },
+            content: `<p>You are about to hide the <strong>Settings</strong> sidebar tab from all affected players.</p>
+            <p>Players will no longer be able to access game or module settings from the UI.</p>
+            <p>If you need to undo this later, run <code>HideUI.Reset()</code> in your browser console (F12).</p>`,
+         });
+         if (!confirmed) return false;
+      }
+
+      await game.settings.set(MODULE_ID, SETTINGS_KEY, data);
+
+      // hideSidebarTab is a world-scoped, GM-only setting in dice-so-nice — applied here,
+      // from the GM's own client, rather than per-player in hide-ui.js's ready hook (where
+      // a non-GM client would lack permission to write it). It affects every connected
+      // client, not just overridden players, and only takes effect after a reload.
+      if (game.modules.get("dice-so-nice")?.active) {
+         try {
+            await game.settings.set("dice-so-nice", "hideSidebarTab", !!data.hideSideBar?.diceSoNice);
+         } catch (err) {
+            console.error(`${MODULE_ID} | Failed to update dice-so-nice's hideSidebarTab setting`, err);
+         }
+      }
+
+      game.socket.emit(SOCKET_EVENT, { type: "settingsUpdated" });
+   }
+}

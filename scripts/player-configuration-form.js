@@ -1,0 +1,198 @@
+import { MODULE_ID, PLAYER_CONFIG_STORAGE_KEY, PLAYER_CONFIG_FLAG_KEY, GM_CONFIGS_KEY, truthySettings, falseySettings } from "./constants.js";
+import { isFullGM, modeFlags, isV14OrLater } from "./helpers.js";
+
+const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
+
+/**
+ * GM-only personal UI form. Lets the GM configure which UI elements are hidden on their own screen.
+ * Opened via the module's settings menu entry (restricted: true).
+ */
+export class HideUIPlayerConfigurationForm extends HandlebarsApplicationMixin(ApplicationV2) {
+   static DEFAULT_OPTIONS = {
+      id: "hide-ui-player-configuration-form",
+      classes: ["hide-ui"],
+      window: { title: "Personal UI" },
+      position: { width: 520, height: 640 },
+      actions: {
+         toggleAll: HideUIPlayerConfigurationForm._onToggleAll,
+      },
+   };
+
+   static PARTS = {
+      form: {
+         template: `modules/${MODULE_ID}/templates/player-configuration-form.hbs`,
+      },
+   };
+
+   /** @type {Object|null} Unsaved state held between action-triggered re-renders. */
+   _formState = null;
+
+   /** @type {AbortController|null} Cleans up the submit listener on each re-render. */
+   _submitController = null;
+
+   /**
+    * Builds context for the personal UI form.
+    * The GM has full control over all options — no world-settings restrictions apply.
+    * @param {ApplicationRenderOptions} options
+    * @returns {Promise<Object>}
+    */
+   async _prepareContext(options) {
+      // Mirror the same read priority used in the ready hook: localStorage first,
+      // then the server flag, so the form reflects the correct state even after a reload.
+      let savedPlayerConfig = null;
+      try {
+         const stored = localStorage.getItem(PLAYER_CONFIG_STORAGE_KEY);
+         if (stored) savedPlayerConfig = JSON.parse(stored);
+      } catch {}
+      savedPlayerConfig ??= game.settings.get(MODULE_ID, GM_CONFIGS_KEY)[game.user.id];
+
+      const playerConfig = this._formState
+         ?? savedPlayerConfig
+         ?? foundry.utils.deepClone(falseySettings);
+
+      // GM always has full control — all canControl flags are true.
+      const canControl = {
+         hideNavigation: { complete: true, navToggle: true, sceneList: true, sceneLevels: true, bossBar: true },
+         hideControls: true,
+         hideSideBar: {
+            chatLog: true,
+            chatInput: true,
+            chatMenuBar: true,
+            combatTracker: true,
+            scenesDirectory: true,
+            actorsDirectory: true,
+            itemsDirectory: true,
+            journalEntries: true,
+            rollableTables: true,
+            cardStacks: true,
+            macros: true,
+            audioPlaylists: true,
+            compendiumPacks: true,
+            gameSettings: true,
+            settingsContent: {
+               gameSettings: true,
+               // GM has "Module Management", not "Active Modules" — irrelevant for personal UI
+               activeModules: false,
+               tours: true,
+               help: true,
+            },
+            placeables: true,
+            diceSoNice: game.modules.get("dice-so-nice")?.active ?? false,
+         },
+         hidePlayers: true,
+         hideCameraViews: true,
+         hideNotifications: true,
+         hideNotificationsErrors: true,
+         hideHotbar: true,
+         hideHotbarControls: { lock: true, clear: true, menu: true, mute: true },
+         hidePlayerConfig: true,
+         hideTokenHUD: true,
+         hideTokenHUDControls: {
+            statusEffects: true,
+            movementAction: true,
+            target: true,
+            combat: true,
+            hide: true,
+            lock: true,
+            config: true,
+         },
+         hideTokenActionHUD: true,
+      };
+
+      return {
+         playerConfig,
+         canControl,
+         // Scene Levels and the Placeables tab are v14-only; the template hides those rows on v13.
+         isV14: isV14OrLater(),
+         // Per-option booleans for the Macro Hotbar's tri-state (off/hide/autohide) select.
+         hideHotbarMode: modeFlags(playerConfig.hideHotbar),
+         showNavigationSection: true,
+         showSidebarSection: true,
+         showPlayersSection: true,
+         showNotificationsSection: true,
+         showHotbarSection: true,
+         showHudSection: true,
+         renderTokenActionHudOption: game.modules.get("token-action-hud")?.active ?? false,
+         renderBossBarOption: game.modules.get("bossbar")?.active ?? false,
+      };
+   }
+
+   /**
+    * Attaches the form submit listener on every render using an AbortController so
+    * re-renders (e.g. after toggleAll) never accumulate duplicate listeners.
+    * The DEFAULT_OPTIONS form.handler mechanism is deliberately not used because in
+    * some V14 AppV2 builds the automatic connection is unreliable, causing native browser
+    * form submission (page reload) instead of calling the handler.
+    * @param {ApplicationRenderContext} context
+    * @param {ApplicationRenderOptions} options
+    */
+   _onRender(context, options) {
+      this._submitController?.abort();
+      this._submitController = new AbortController();
+      const form = this.element.querySelector("form");
+      if (!form) return;
+      form.addEventListener("submit", async (event) => {
+         event.preventDefault();
+         const fd = new foundry.applications.ux.FormDataExtended(form);
+         const saved = await HideUIPlayerConfigurationForm._onSubmit.call(this, event, form, fd);
+         if (saved !== false) this.close();
+      }, { signal: this._submitController.signal });
+   }
+
+   /**
+    * Toggles all visible checkboxes.
+    * @param {Event} event
+    * @param {HTMLElement} _target
+    * @returns {Promise<void>}
+    */
+   static async _onToggleAll(event, _target) {
+      const form = this.element.querySelector("form");
+      // "Active" means any checkbox is ticked or any tri-state segmented control is not "off".
+      const anyChecked = [...form.querySelectorAll('input[type="checkbox"]')].some(cb => cb.checked)
+         || [...form.querySelectorAll('.hide-ui-mode input[type="radio"]:checked')].some(r => r.value !== "off");
+      this._formState = foundry.utils.deepClone(anyChecked ? falseySettings : truthySettings);
+      this.render();
+   }
+
+   /**
+    * Saves the personal UI configuration to the GM's user flag on submit.
+    * Shows a confirmation dialog when the Game Settings tab would be hidden, since the GM
+    * would lose access to all module settings from the UI until a reload or HideUI.Reset().
+    * localStorage is written first so the ready hook can read it immediately after
+    * the page reload that setFlag triggers in V14.
+    * @param {Event} event
+    * @param {HTMLFormElement} _form
+    * @param {FormDataExtended} formData
+    * @returns {Promise<boolean|undefined>} false if the GM cancelled, undefined otherwise.
+    */
+   static async _onSubmit(event, _form, formData) {
+      const current = game.user.getFlag(MODULE_ID, PLAYER_CONFIG_FLAG_KEY)
+         ?? foundry.utils.deepClone(falseySettings);
+      const data = foundry.utils.mergeObject(current, formData.object, {
+         insertKeys: true,
+         insertValues: true,
+      });
+
+      if (data.hideSideBar?.gameSettings || data.hideSideBar?.complete) {
+         const confirmed = await foundry.applications.api.DialogV2.confirm({
+            window: { title: "Warning: Settings Tab Will Be Hidden" },
+            content: `<p>You are about to hide the <strong>Settings</strong> sidebar tab from your own screen.</p>
+            <p>You will no longer be able to access game or module settings from the UI until the next reload.</p>
+            <p>If you get locked out, run <code>HideUI.Reset()</code> in your browser console (F12).</p>`,
+         });
+         if (!confirmed) return false;
+      }
+
+      localStorage.setItem(PLAYER_CONFIG_STORAGE_KEY, JSON.stringify(data));
+      const gmConfigs = game.settings.get(MODULE_ID, GM_CONFIGS_KEY);
+      await game.settings.set(MODULE_ID, GM_CONFIGS_KEY, { ...gmConfigs, [game.user.id]: data });
+
+      const reload = await foundry.applications.api.DialogV2.confirm({
+         window: { title: "Reload Required" },
+         content: "<p>Your Personal UI settings have been saved.</p><p>A reload is required to apply the changes. Reload now?</p>",
+         yes: { label: "Reload Now" },
+         no: { label: "Later" },
+      });
+      if (reload) window.location.reload();
+   }
+}

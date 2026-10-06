@@ -1,0 +1,212 @@
+/* ── Body-level hide classes ──────────────────────────────────────────────── */
+/* These are added to <body> at runtime by hide-ui.js to toggle Foundry UI elements. */
+
+.hide-ui-navigation #scene-navigation-expand,
+.hide-ui-navigation #scene-navigation,
+.hide-ui-navigation .monks-scene-navigation {
+   display: none !important;
+}
+
+.hide-ui-navToggle #scene-navigation-expand {
+   display: none !important;
+}
+
+.hide-ui-sceneList #scene-navigation,
+.hide-ui-sceneList .monks-scene-navigation {
+   display: none !important;
+}
+
+/* Hides only the per-level list Foundry v14 injects under the viewed scene when it
+   has 2+ Levels (#scene-navigation-levels), leaving every scene name navigable. */
+.hide-ui-sceneLevels #scene-navigation-levels {
+   display: none !important;
+}
+
+.hide-ui-bossBar .bossBar {
+   display: none !important;
+}
+
+.hide-ui-controls #scene-controls {
+   display: none !important;
+}
+
+.hide-ui-controls #players {
+   position: absolute;
+   bottom: 1rem;
+}
+
+.hide-ui-sidebar #sidebar,
+.hide-ui-sidebar #chat-message {
+   display: none !important;
+}
+
+.hide-ui-chatLog #sidebar-tabs li:has(button[data-tab="chat"]) {
+   display: none !important;
+}
+
+.hide-ui-chatInput #sidebar-content #chat #chat-form,
+.hide-ui-chatInput #chat-message,
+.hide-ui-chatInput #roll-privacy {
+   display: none !important;
+}
+
+.hide-ui-chatMenuBar #chat-message .menu-container {
+   display: none !important;
+}
+
+.hide-ui-combatTracker #sidebar-tabs li:has(button[data-tab="combat"]) {
+   display: none !important;
+}
+
+.hide-ui-scenesDirectory #sidebar-tabs li:has(button[data-tab="scenes"]) {
+   display: none !important;
+}
+
+.hide-ui-actorsDirectory #sidebar-tabs li:has(button[data-tab="actors"]) {
+   display: none !important;
+}
+
+.hide-ui-itemsDirectory #sidebar-tabs li:has(button[data-tab="items"]) {
+   display: none !important;
+}
+
+.hide-ui-journalEntries #sidebar-tabs li:has(button[data-tab="journal"]) {
+   display: none !important;
+}
+
+.hide-ui-rollableTables #sidebar-tabs li:has(button[data-tab="tables"]) {
+   display: none !important;
+}
+
+.hide-ui-cardStacks #sidebar-tabs li:has(button[data-tab="cards"]) {
+   display: none !important;
+}
+
+.hide-ui-macros #sidebar-tabs li:has(button[data-tab="macros"]) {
+   display: none !important;
+}
+
+.hide-ui-audioPlaylists #sidebar-tabs li:has(button[data-tab="playlists"]) {
+   display: none !important;
+}
+
+.hide-ui-compendiumPacks #sidebar-tabs li:has(button[data-tab="compendium"]) {
+   display: none !important;
+}
+
+.hide-ui-gameSettings #sidebar-tabs li:has(button[data-tab="settings"]) {
+   display: none !important;
+}
+
+/* Sub-elements within the Settings tab panel */
+.hide-ui-settingsGameSettings #settings button[data-app="configure"] {
+   display: none !important;
+}
+
+/* Players see "Active Modules" (data-app="modules") instead of GM's "Module Management" */
+.hide-ui-settingsActiveModules #settings button[data-app="modules"] {
+   display: none !important;
+}
+
+.hide-ui-settingsTours #settings button[data-app="tours"] {
+   display: none !important;
+}
+
+.hide-ui-settingsHelp #settings section.documentation {
+   display: none !important;
+}
+
+.hide-ui-placeables #sidebar-tabs li:has(button[data-tab="placeables"]) {
+   display: none !important;
+}
+
+.hide-ui-sidebarToggle #sidebar-tabs li:has(button[data-action="toggleState"]) {
+   display: none !important;
+}
+
+.hide-ui-players #players {
+   display: none !important;
+}
+
+.hide-ui-camera-views #camera-views {
+   display: none !important;
+}
+
+/* Notification toasts. In v14 these render as <li class="notification info|warning|error">
+   inside <ol id="notifications">. The master keeps error toasts visible; the -errors
+   class hides those too. Targeting the <li> (not the <ol>) lets the two toggle independently. */
+.hide-ui-notifications #notifications li.notification:not(.error) {
+   display: none !important;
+}
+
+.hide-ui-notifications-errors #notifications li.notification.error {
+   display: none !important;
+}
+
+.hide-ui-hotbar #hotbar {
+   display: none !important;
+}
+
+.hide-ui-hotbarLock #hotbar button[data-action="lock"] {
+   display: none !important;
+}
+
+.hide-ui-hotbarClear #hotbar button[data-action="clear"] {
+   display: none !important;
+}
+
+.hide-ui-hotbarMenu #hotbar button[data-action="menu"] {
+   display: none !important;
+}
+
+.hide-ui-hotbarMute #hotbar button[data-action="mute"] {
+   display: none !important;
+}
+
+.hide-ui-player-config .user-config {
+   display: none !important;
+}
+
+.hide-ui-token-hud #token-hud {
+   display: none !important;
+}
+
+.hide-ui-tokenHudStatusEffects #token-hud [data-action="togglePalette"][data-palette="effects"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudMovementAction #token-hud [data-action="togglePalette"][data-palette="movementActions"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudTarget #token-hud button[data-action="target"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudCombat #token-hud button[data-action="combat"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudHide #token-hud button[data-action="visibility"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudLock #token-hud button[data-action="locked"] {
+   display: none !important;
+}
+
+.hide-ui-tokenHudConfig #token-hud button[data-action="config"] {
+   display: none !important;
+}
+
+.hide-ui-token-action-hud #token-action-hud {
+   display: none !important;
+}
+
+.hide-ui-dynamic-sized-sidebar #sidebar.collapsed {
+   height: auto !important;
+}
+
+.hide-ui-dynamic-sized-sidebar #sidebar-tabs {
+   justify-content: space-evenly;
+}
